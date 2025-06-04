@@ -22,6 +22,14 @@
 <body>
   <div class="no-container w-full p-4">
     <h1 class="text-3xl font-bold text-center mb-6">将来の運用資産額シミュレーション</h1>
+    <!-- プリセットボタン -->
+    <div class="flex flex-wrap gap-2 mb-4 justify-center">
+        <button class="preset bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded" data-type="ultra">超保守型</button>
+        <button class="preset bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded" data-type="conservative">安定型</button>
+        <button class="preset bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded" data-type="balanced">バランス型</button>
+        <button class="preset bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded" data-type="growth">成長型</button>
+        <button class="preset bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded" data-type="aggressive">攻撃型</button>
+    </div>
 
     <!-- 入力フォーム -->
     <div class="bg-white rounded shadow p-6 mb-6">
@@ -43,16 +51,17 @@
 
     <!-- グラフ + サマリー 2 カラム -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="bg-white rounded shadow p-4 col-span-2 flex flex-col">
+       <div class="bg-white rounded shadow p-4 col-span-2 flex flex-col">
         <h3 class="text-sm font-medium text-center mb-2">資産推移（元本と総資産の内訳）</h3>
         <div id="chart" class="flex-grow" style="width:100%; height:500px;"></div>
         <p id="err" class="text-red-500 text-center text-sm mt-1"></p>
       </div>
 
+
       <!-- サマリー表 -->
-      <div id="summaryPanel" class="bg-white rounded shadow p-4 hidden">
+      <div id="summaryPanel" class="bg-white rounded shadow p-4 hidden mt-20">
         <h3 class="text-lg font-bold mb-3 text-center">積立期間終了時の予想資産額</h3>
-        <table class="w-full text-sm mb-4">
+        <table class="w-full text-lg mb-4">
           <thead class="bg-gray-100 text-gray-600">
             <tr><th class="py-1 pl-2 text-left">運用成績</th><th class="py-1 pr-2 text-right">予想資産額 (円)</th></tr>
           </thead>
@@ -64,6 +73,25 @@
   </div>
 
 <script>
+    /* プリセットの想定リターン・リスク値 */
+const presetValues = {
+  ultra:       { mu: 1.5, sd: 4.0 },
+  conservative:{ mu: 3.0, sd: 7.0 },
+  balanced:    { mu: 5.0, sd: 11.0 },
+  growth:      { mu: 7.0, sd: 15.0 },
+  aggressive:  { mu: 9.0, sd: 20.0 }
+};
+
+document.querySelectorAll('.preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const type = btn.dataset.type;
+    if (presetValues[type]) {
+      document.getElementById('mu').value = presetValues[type].mu;
+      document.getElementById('sd').value = presetValues[type].sd;
+    }
+  });
+});
+
 /* ------- 正規分布乱数 ------- */
 let spare=null;function nrand(){if(spare!==null){const x=spare;spare=null;return x}let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();spare=Math.sqrt(-2*Math.log(u))*Math.sin(2*Math.PI*v);return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}function normal(m,s){return m+nrand()*s;}
 
@@ -115,11 +143,11 @@ document.getElementById('run').addEventListener('click',()=>{
   const finals=paths.map(p=>p[yrs]).sort((a,b)=>a-b);
   const p05=Math.floor(sim*0.05),p30=Math.floor(sim*0.30),p70=Math.floor(sim*0.70),p95=Math.floor(sim*0.95);
   const summary=[
-    ['運用成績が上位 5 %', finals[p95]],
-    ['運用成績が上位 30 %',finals[p70]],
-    ['想定リターン',         avg[yrs]],
-    ['運用成績が下位 30 %',finals[p30]],
-    ['運用成績が下位 5 %', finals[p05]]
+    [' 非常に好調なケース（上位5%）', finals[p95]],
+    ['好調なケース（上位30%）',finals[p70]],
+    ['平均的なシナリオ',avg[yrs]],
+    ['やや低調なケース（下位30%）',finals[p30]],
+    [' 非常に低調なケース（下位5%） ', finals[p05]]
   ];
   const tbody=document.getElementById('summaryRows');
   tbody.innerHTML='';
