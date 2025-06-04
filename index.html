@@ -264,6 +264,7 @@
       <button class="btn active" id="modeFixed" data-tooltip="年間±4%の範囲でランダムに変動します。">固定 ±4%変動</button>
       <button class="btn" id="modeSP500" data-tooltip="S&P500の過去のデータに基づき、年間±15%の範囲でランダムに変動します。">S&P500想定 ±15%変動</button>
       <button class="btn" id="modeNormal" data-tooltip="年間平均5%、標準偏差10%の正規分布に従って市場が変動します。より現実的な市場の動きを再現します。">正規分布</button>
+      <button class="btn" id="modeGBM" data-tooltip="幾何ブラウン運動モデルに基づき、年間平均7%、標準偏差15%で市場が変動します。株価の動きをより厳密にモデル化します。">幾何ブラウン運動</button>
     </div>
     <div class="control-row">
       <span>初期投資額：</span>
@@ -290,8 +291,8 @@
     </div>
     <div id="summaryArea">
       <div id="yearSummaryControls">
-        <span>比較する年 (0–20)：</span>
-        <input type="number" id="yearInputSummary" min="0" max="20" value="20">
+        <span>比較する年 (0–<span id="totalYearsDisplay">50</span>)：</span>
+        <input type="number" id="yearInputSummary" min="0" max="50" value="50">
         <button class="btn" id="yearCompareBtnSummary">比較</button>
       </div>
       <h3>4パターン比較 (指定年)</h3>
@@ -308,14 +309,13 @@
       </table>
       
       <div id="explanationArea">
-        <!-- 以下のデータ説明は削除し、投資パターン説明のみ残す -->
         <h3>投資パターン説明：</h3>
         <div class="explanation-item">
           <ul>
-            <li><strong>既存株フルベット：</strong>配当金を既存の株式に再投資</li>
-            <li><strong>配当4%新規株：</strong>配当金と追加投資を年4%リターンの新規株に投資</li>
-            <li><strong>高変動5%新規株：：</strong>配当金と追加投資を年5%前後の高変動株に投資</li>
-            <li><strong>配当貯金型：：</strong>配当金を現金として蓄積（再投資しない）</li>
+            <li><strong>既存株フルベット：</strong>配当金と年間追加投資を既存の株に再投資</li>
+            <li><strong>配当4%新規株：</strong>配当金と年間追加投資を年4%リターンの新規株に投資</li>
+            <li><strong>高変動5%新規株：</strong>配当金と年間追加投資を年5%前後の高変動株に投資</li>
+            <li><strong>配当貯金型：</strong>配当金を現金として蓄積（年間追加投資も現金として蓄積）</li>
           </ul>
         </div>
       </div>
@@ -324,9 +324,9 @@
 
   <script>
     // === 定数 ===
-    const TOTAL_YEARS        = 20;
+    const TOTAL_YEARS        = 50; // シミュレーション期間を50年に延長
     let INITIAL_INVESTMENT = 500000;
-    let ANNUAL_NEW_INVEST  = 50000;
+    let ANNUAL_NEW_INVEST  = 50000; // 年間追加投資額
     let NUM_INITIAL_COMPANIES = 5; // 初期会社数
     const DIVIDEND_YIELD     = 0.04;
     const LONG_PRESS_THRESHOLD = 500; // 長押しと認識する時間（ミリ秒）
@@ -336,7 +336,7 @@
     let currentMode    = 'fixed';
     let currentPattern = 'reinvestSame';
     let chart          = null;
-    let lastSimData    = null;
+    let lastSimData    = null; // 最後にシミュレートされた全期間のデータ
     let tooltipElement = null; // 現在表示されているツールチップ要素
     let longPressTimer = null; // 長押しタイマー
     let touchStartX = 0;
@@ -357,10 +357,13 @@
       document.getElementById('modeFixed').addEventListener('click', () => setMode('fixed'));
       document.getElementById('modeSP500').addEventListener('click', () => setMode('sp500'));
       document.getElementById('modeNormal').addEventListener('click', () => setMode('normal'));
+      document.getElementById('modeGBM').addEventListener('click', () => setMode('gbm'));
       document.getElementById('patReinvestSame').addEventListener('click', () => setPattern('reinvestSame'));
       document.getElementById('patReinvestNew4').addEventListener('click', () => setPattern('reinvestNew4'));
       document.getElementById('patReinvestVolatile').addEventListener('click', () => setPattern('reinvestVolatile'));
       document.getElementById('patCollectCash').addEventListener('click', () => setPattern('collectCash'));
+      
+      // 「比較」ボタンのイベントリスナー
       document.getElementById('yearCompareBtnSummary').addEventListener('click', updateSummary);
       
       // 投資額と会社数の変更イベント
@@ -368,10 +371,15 @@
       document.getElementById('annualInvestment').addEventListener('change', updateInvestmentSettings);
       document.getElementById('numInitialCompanies').addEventListener('change', updateInvestmentSettings);
 
+      // 年比較の表示と入力範囲を更新
+      document.getElementById('totalYearsDisplay').textContent = TOTAL_YEARS;
+      document.getElementById('yearInputSummary').setAttribute('max', TOTAL_YEARS);
+      document.getElementById('yearInputSummary').value = TOTAL_YEARS; // 初期値を最大年数に設定
+
       // ツールチップイベントリスナー設定
       setupTooltipListeners();
 
-      simulateAndRender();
+      simulateAndRender(); // 初回ロード時にシミュレーションを実行し、グラフと表を更新
     });
 
     // === UI 更新ヘルパ ===
@@ -392,7 +400,8 @@
       const idMap = {
         fixed: 'modeFixed',
         sp500: 'modeSP500',
-        normal: 'modeNormal'
+        normal: 'modeNormal',
+        gbm: 'modeGBM'
       };
       document.getElementById(idMap[mode]).classList.add('active');
       simulateAndRender();
@@ -414,7 +423,7 @@
     // Box-Muller変換による正規乱数生成
     function gaussianRandom(mean = 0, stdev = 1) {
       let u = 0, v = 0;
-      while(u === 0) u = Math.random(); // (0,1)の範囲に変換
+      while(u === 0) u = Math.random();
       while(v === 0) v = Math.random();
       let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
       return num * stdev + mean;
@@ -425,19 +434,23 @@
     function marketSeries() {
       const arr = [1];
       for (let y = 1; y <= TOTAL_YEARS; y++) {
-        let marketReturn;
+        let marketReturnMultiplier;
         if (currentMode === 'fixed') {
-          marketReturn = randRange(0.04);
+          marketReturnMultiplier = randRange(0.04);
         } else if (currentMode === 'sp500') {
-          marketReturn = randRange(0.15);
+          marketReturnMultiplier = randRange(0.15);
         } else if (currentMode === 'normal') {
-          // 平均リターンと標準偏差を設定 (例: 年間平均5%, 標準偏差10%)
           const meanReturn = 0.05;
           const stdevReturn = 0.10;
-          // 正規乱数で市場変動を生成
-          marketReturn = 1 + gaussianRandom(meanReturn, stdevReturn);
+          marketReturnMultiplier = 1 + gaussianRandom(meanReturn, stdevReturn);
+        } else if (currentMode === 'gbm') {
+          const mu = 0.07;
+          const sigma = 0.15;
+          const dt = 1;
+          const Z = gaussianRandom(0, 1);
+          marketReturnMultiplier = Math.exp((mu - 0.5 * sigma * sigma) * dt + sigma * Math.sqrt(dt) * Z);
         }
-        arr[y] = arr[y - 1] * marketReturn;
+        arr[y] = arr[y - 1] * marketReturnMultiplier;
       }
       return arr;
     }
@@ -453,10 +466,8 @@
       const market = marketSeries();
 
       Object.keys(results).forEach(pattern => {
-        // 初期会社数に基づいて企業リストを生成
         const comps = [];
         for (let i = 0; i < NUM_INITIAL_COMPANIES; i++) {
-          // baseCompanyParamsから循環して選ぶ
           comps.push(JSON.parse(JSON.stringify(baseCompanyParams[i % baseCompanyParams.length])));
         }
         
@@ -467,11 +478,10 @@
         results[pattern].reinvest.push(reinvestHold);
 
         for (let year = 1; year <= TOTAL_YEARS; year++) {
-          // 年間追加投資額を現在の会社数で均等に割り振る
-          const addPerBase = (pattern === 'reinvestSame' || pattern === 'collectCash')
-                              ? ANNUAL_NEW_INVEST / comps.length
-                              : 0;
-          baseVals = baseVals.map(v => v + addPerBase);
+          // 年間追加投資額は、パターンに関わらずreinvestHoldに加算されるように変更
+          // 元資産への直接的な追加は行わない
+          const addPerBase = 0; // すべてのパターンで元資産への直接追加を0にする
+          baseVals = baseVals.map(v => v + addPerBase); // 既存のbaseValsにaddPerBaseを適用（今回は0なので変化なし）
 
           let totalDividends = 0;
           comps.forEach((c, idx) => {
@@ -484,18 +494,21 @@
 
           switch (pattern) {
             case 'reinvestSame':
-              reinvestHold = reinvestHold * (market[year] / market[year - 1]) 
-                           + totalDividends * (market[year] / market[year - 1]);
+              // 既存株フルベット: 配当金と年間追加投資額を既存株に再投資（市場変動の影響を受ける）
+              reinvestHold = (reinvestHold + totalDividends + ANNUAL_NEW_INVEST) * (market[year] / market[year - 1]);
               break;
             case 'reinvestNew4':
+              // 配当4%新規株: 配当金と年間追加投資額を年4%リターンの新規株に投資
               reinvestHold = (reinvestHold + totalDividends + ANNUAL_NEW_INVEST) * 1.04;
               break;
             case 'reinvestVolatile':
+              // 高変動5%新規株: 配当金と年間追加投資額を年5%前後の高変動株に投資
               const r = 0.055 + (Math.random() - 0.5) * 0.01;
               reinvestHold = (reinvestHold + totalDividends + ANNUAL_NEW_INVEST) * (1 + r);
               break;
             default: // collectCash
-              reinvestHold += totalDividends;
+              // 配当貯金型: 配当金のみを現金として蓄積（年間追加投資額も現金として蓄積）
+              reinvestHold += (totalDividends + ANNUAL_NEW_INVEST); // 年間追加投資額も再投資等に合算
           }
 
           results[pattern].base.push(sumArray(baseVals));
@@ -508,9 +521,9 @@
     function sumArray(arr) { return arr.reduce((s, v) => s + v, 0); }
 
     // === グラフ描画 ===
-    function renderChart(data) {
-      lastSimData = data;
-      const labels = Array.from({ length: TOTAL_YEARS + 1 }, (_, i) => `Year ${i}`);
+    // displayYears: グラフに表示する年数 (0からdisplayYearsまで)
+    function renderChart(data, displayYears) {
+      const labels = Array.from({ length: displayYears + 1 }, (_, i) => `Year ${i}`);
       const colors = {
         reinvestSame:     ['rgba(54,162,235,0.8)', 'rgba(54,162,235,0.3)'],
         reinvestNew4:     ['rgba(75,192,192,0.8)', 'rgba(75,192,192,0.3)'],
@@ -521,13 +534,13 @@
       const datasets = [
         {
           label: `${key} - 元資産`,
-          data:  data[key].base.map(v => +v.toFixed(0)),
+          data:  data[key].base.slice(0, displayYears + 1).map(v => +v.toFixed(0)),
           backgroundColor: colors[key][0],
           stack: key
         },
         {
           label: `${key} - 再投資`,
-          data:  data[key].reinvest.map(v => +v.toFixed(0)),
+          data:  data[key].reinvest.slice(0, displayYears + 1).map(v => +v.toFixed(0)),
           backgroundColor: colors[key][1],
           stack: key
         }  
@@ -552,20 +565,22 @@
     }
 
     // === テーブル描画 ===
-    function renderTable(data) {
+    // displayYears: テーブルに表示する年数 (0からdisplayYearsまで)
+    function renderTable(data, displayYears) {
       const key = currentPattern;
       let html = '<table><thead><tr>';
       // 各ヘッダーにツールチップデータ属性を追加
       html += `<th data-tooltip="シミュレーションの経過年数です。">Year</th>`;
       html += `<th data-tooltip="株式投資によって増減する資産です。市場の変動と各企業の個別リスクの影響を受けます。">元資産</th>`;
-      html += `<th data-tooltip="配当金の再投資や追加投資により蓄積された資産です。選択された投資パターンにより運用方法が異なります。">再投資等</th>`;
+      html += `<th data-tooltip="配当金と年間追加投資額の運用によって蓄積された資産です。選択された投資パターンにより運用方法が異なります。">再投資等</th>`;
       html += `<th data-tooltip="元資産と再投資等の合計額です。これが実際の総資産額となります。">合計</th>`;
       html += '</tr></thead><tbody>';
-      data[key].base.forEach((baseVal, i) => {
+      for (let i = 0; i <= displayYears; i++) { // 指定された年数までループ
+        const baseVal = data[key].base[i];
         const reinvVal = data[key].reinvest[i];
         const totalVal = baseVal + reinvVal;
         html += `<tr><td>${i}</td><td>${baseVal.toFixed(0).toLocaleString()}</td><td>${reinvVal.toFixed(0).toLocaleString()}</td><td>${totalVal.toFixed(0).toLocaleString()}</td></tr>`;
-      });
+      }
       html += '</tbody></table>';
       document.getElementById('dataTable').innerHTML = html;
 
@@ -576,21 +591,38 @@
     // === 範囲比較 ===
     function updateSummary() {
       if (!lastSimData) return;
+
       const y = parseInt(document.getElementById('yearInputSummary').value, 10);
-      if (isNaN(y) || y < 0 || y > TOTAL_YEARS) return;
+      let displayYearsForChartAndTable = TOTAL_YEARS; // デフォルトは全期間表示
+
+      if (!isNaN(y) && y >= 0 && y <= TOTAL_YEARS) {
+        displayYearsForChartAndTable = y; // 有効な年が入力されたらその年まで表示
+      } else {
+        // 無効な年が入力された場合、入力フィールドの値をTOTAL_YEARSに戻す
+        document.getElementById('yearInputSummary').value = TOTAL_YEARS;
+      }
+
+      // グラフと表を選択された年まで更新（無効な場合は全期間）
+      renderChart(lastSimData, displayYearsForChartAndTable);
+      renderTable(lastSimData, displayYearsForChartAndTable);
+
+      // --- 従来のサマリー範囲計算（複数回のシミュレーションが必要な部分） ---
       const patterns = ['reinvestSame', 'reinvestNew4', 'reinvestVolatile', 'collectCash'];
       const ranges = { reinvestSame: [], reinvestNew4: [], reinvestVolatile: [], collectCash: [] };
+      // 範囲計算は常にTOTAL_YEARSまでのデータで行う
+      const targetYearForSummary = (isNaN(y) || y < 0 || y > TOTAL_YEARS) ? TOTAL_YEARS : y; // サマリー計算に使う年
+
       for (let i = 0; i < 10; i++) {
         const data = simulate();
         patterns.forEach(key => {
-          const val = data[key].base[y] + data[key].reinvest[y];
+          const val = (data[key].base[targetYearForSummary] || 0) + (data[key].reinvest[targetYearForSummary] || 0);
           ranges[key].push(val);
         });
       }
       patterns.forEach(key => {
         const arr = ranges[key];
         const minV = Math.min(...arr);
-        const maxV = Math.max(...arr);
+        const maxV = Math.Max(...arr);
         const id = {
           reinvestSame: 'sumReinvestSame',
           reinvestNew4: 'sumReinvestNew4',
@@ -599,6 +631,7 @@
         }[key];
         document.getElementById(id).innerText = `${minV.toLocaleString()}～${maxV.toLocaleString()}`;
       });
+      // --- サマリー範囲計算終了 ---
     }
 
     // === ツールチップ表示ロジック ===
@@ -608,7 +641,6 @@
 
       if (!tooltipText) return;
 
-      // 既存のツールチップがあれば削除
       if (tooltipElement) {
         tooltipElement.remove();
       }
@@ -618,24 +650,19 @@
       tooltipElement.textContent = tooltipText;
       document.body.appendChild(tooltipElement);
 
-      // 要素の位置とサイズを取得
       const rect = targetElement.getBoundingClientRect();
 
-      // ツールチップの位置を計算（要素の右上）
-      // ツールチップの幅と高さを取得するために、一度DOMに追加してから計算
       const tooltipWidth = tooltipElement.offsetWidth;
       const tooltipHeight = tooltipElement.offsetHeight;
 
-      // 要素の右上を基準に、少しずらして配置
       let leftPos = rect.right - tooltipWidth / 2;
-      let topPos = rect.top - tooltipHeight - 10; // 要素の上端からツールチップの高さ+余白を上に
+      let topPos = rect.top - tooltipHeight - 10;
 
-      // 画面端からはみ出さないように調整
       if (leftPos < 0) {
           leftPos = 5;
       }
       if (topPos < 0) {
-          topPos = rect.bottom + 5; // 要素の下に表示
+          topPos = rect.bottom + 5;
       }
       if (leftPos + tooltipWidth > window.innerWidth) {
           leftPos = window.innerWidth - tooltipWidth - 5;
@@ -653,7 +680,6 @@
       if (tooltipElement) {
         tooltipElement.style.opacity = '0';
         tooltipElement.style.visibility = 'hidden';
-        // アニメーション後に要素を削除
         tooltipElement.addEventListener('transitionend', () => {
           if (tooltipElement && tooltipElement.parentNode) {
             tooltipElement.remove();
@@ -670,17 +696,15 @@
 
     // === ツールチップイベントリスナーのセットアップ ===
     function setupTooltipListeners() {
-      // data-tooltip属性を持つ全ての要素を取得
       const tooltipTargets = document.querySelectorAll('[data-tooltip]');
 
       tooltipTargets.forEach(target => {
-        // イベントリスナーを重複して追加しないように、既存のものを削除
         target.removeEventListener('mouseover', showTooltip);
         target.removeEventListener('mouseout', hideTooltip);
         target.removeEventListener('touchstart', handleTouchStart);
         target.removeEventListener('touchend', handleTouchEnd);
         target.removeEventListener('touchmove', handleTouchMove);
-        target.removeEventListener('touchcancel', handleTouchEnd); // touchcancelもtouchendと同じ処理
+        target.removeEventListener('touchcancel', handleTouchEnd);
 
         if (isTouchDevice()) {
           target.addEventListener('touchstart', handleTouchStart);
@@ -696,7 +720,6 @@
 
     // === タッチイベントハンドラ ===
     function handleTouchStart(event) {
-      // 複数の指でのタッチは無視
       if (event.touches.length > 1) {
         clearTimeout(longPressTimer);
         return;
@@ -706,14 +729,12 @@
       touchStartX = event.touches[0].clientX;
       touchStartY = event.touches[0].clientY;
 
-      // 長押しタイマーを開始
       longPressTimer = setTimeout(() => {
         showTooltip(event);
       }, LONG_PRESS_THRESHOLD);
     }
 
     function handleTouchMove(event) {
-      // 指が大きく動いたら長押しをキャンセル
       const currentX = event.touches[0].clientX;
       const currentY = event.touches[0].clientY;
       const deltaX = Math.abs(currentX - touchStartX);
@@ -721,24 +742,22 @@
 
       if (deltaX > TOUCH_MOVE_THRESHOLD || deltaY > TOUCH_MOVE_THRESHOLD) {
         clearTimeout(longPressTimer);
-        hideTooltip(); // 移動したらツールチップを非表示にする
+        hideTooltip();
       }
     }
 
     function handleTouchEnd(event) {
       clearTimeout(longPressTimer);
-      // タップでツールチップが残らないように、タッチ終了時に非表示にする
-      // ただし、長押しで表示された場合は、ユーザーが明示的にタップするまで残したい場合もあるので、
-      // ここでは非表示にするシンプルなロジックを採用
       hideTooltip();
     }
 
     // === 描画呼び出し ===
     function simulateAndRender() {
-      const data = simulate();
-      renderChart(data);
-      renderTable(data); // renderTable内でツールチップリスナーが再設定される
-      updateSummary();
+      lastSimData = simulate();
+      // 初期表示と設定変更時は常に全期間を表示
+      renderChart(lastSimData, TOTAL_YEARS);
+      renderTable(lastSimData, TOTAL_YEARS);
+      updateSummary(); // サマリーを更新し、必要に応じてグラフと表を再描画
     }
   </script>
 </body>
