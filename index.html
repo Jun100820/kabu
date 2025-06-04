@@ -1,764 +1,140 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>資産シミュレーション</title>
-  <!-- Chart.js CDN を読み込み -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>運用資産シミュレーション</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+
+  <!-- Vega stack -->
+  <script src="https://cdn.jsdelivr.net/npm/vega@5.22.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.14.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.22.2"></script>
+
   <style>
-    body {
-      background-color: #f5f5f5;
-      color: #333;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h2 {
-      color: #2c3e50;
-      margin: 20px 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    h3 {
-      color: #34495e;
-      margin: 15px 0;
-      font-size: 18px;
-    }
-
-    #controls {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-
-    .control-row {
-      margin-bottom: 15px;
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .control-row input[type="number"] {
-      width: 120px;
-      padding: 8px;
-      border: 1px solid #dee2e6;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-
-    #controls span {
-      color: #666;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-
-    .btn {
-      background-color: #f8f9fa;
-      border: 1px solid #dee2e6;
-      color: #495057;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-right: 8px;
-      margin-bottom: 8px;
-      transition: all 0.2s ease;
-    }
-
-    .btn:hover {
-      background-color: #e9ecef;
-      border-color: #cbd3da;
-    }
-
-    .btn.active {
-      background-color: #0d6efd;
-      border-color: #0d6efd;
-      color: white;
-    }
-
-    #patternControls {
-      margin-top: 15px;
-    }
-
-    #mainArea {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
-    }
-
-    /* 992px以上の画面幅では、チャートとサマリーエリアを2カラム表示 */
-    @media (min-width: 992px) {
-      #mainArea {
-        grid-template-columns: 2fr 1fr;
-      }
-    }
-
-    #chartContainer {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    #assetChart {
-      width: 100%;
-      height: 400px;
-      margin-bottom: 20px;
-    }
-
-    #dataTable {
-      margin-top: 20px;
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid #dee2e6;
-      border-radius: 4px;
-    }
-
-    #dataTable table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    #dataTable th,
-    #dataTable td {
-      padding: 12px;
-      text-align: right;
-      border-bottom: 1px solid #dee2e6;
-    }
-
-    #dataTable th {
-      background-color: #f8f9fa;
-      font-weight: 600;
-      color: #495057;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    #dataTable td:first-child,
-    #dataTable th:first-child {
-      text-align: left;
-    }
-
-    #summaryArea {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    #yearSummaryControls {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    #yearInputSummary {
-      width: 80px;
-      padding: 8px;
-      border: 1px solid #dee2e6;
-      border-radius: 4px;
-    }
-
-    #summaryTable {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    #summaryTable th,
-    #summaryTable td {
-      padding: 12px;
-      text-align: right;
-      border-bottom: 1px solid #dee2e6;
-    }
-
-    #summaryTable th {
-      background-color: #f8f9fa;
-      font-weight: 600;
-      color: #495057;
-    }
-
-    #summaryTable td:first-child,
-    #summaryTable th:first-child {
-      text-align: left;
-    }
-
-    #explanationArea {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #dee2e6;
-    }
-
-    .explanation-item {
-      margin-bottom: 15px;
-      line-height: 1.5;
-    }
-
-    .explanation-item ul {
-      margin-top: 8px;
-      margin-bottom: 0;
-    }
-
-    .explanation-item li {
-      margin-bottom: 5px;
-    }
-
-    /* スマートフォン向けレスポンシブデザイン */
-    @media (max-width: 768px) {
-      body {
-        padding: 10px; /* パディングを小さくする */
-      }
-      
-      #controls button {
-        width: 100%; /* ボタンを横幅いっぱいに広げる */
-        margin-bottom: 8px;
-      }
-
-      .control-row {
-        flex-direction: column; /* コントロール行を縦並びにする */
-        align-items: stretch; /* アイテムを横幅いっぱいに広げる */
-      }
-
-      .control-row input[type="number"] {
-        width: 100%; /* 入力フィールドを横幅いっぱいに広げる */
-      }
-
-      #yearSummaryControls {
-        flex-direction: column; /* 年比較コントロールを縦並びにする */
-        align-items: stretch; /* アイテムを横幅いっぱいに広げる */
-      }
-
-      #yearInputSummary {
-        width: 100%; /* 年入力フィールドを横幅いっぱいに広げる */
-      }
-    }
-
-    /* ツールチップのスタイル */
-    .tooltip {
-      position: absolute;
-      background-color: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px; /* 角を丸く */
-      font-size: 12px;
-      white-space: nowrap;
-      z-index: 100;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.3s, visibility 0.3s;
-      pointer-events: none; /* ツールチップがマウスイベントをブロックしないように */
-    }
+    body{margin:0;font-family:'Inter',sans-serif;background:#f7fafc}
+    .no-container{max-width:none!important}
   </style>
 </head>
 <body>
-  <h2>資産シミュレーション</h2>
-  <div id="controls">
-    <div class="control-row">
-      <span>市場指標を選択：</span>
-      <button class="btn active" id="modeFixed" data-tooltip="年間±4%の範囲でランダムに変動します。">固定 ±4%変動</button>
-      <button class="btn" id="modeSP500" data-tooltip="S&P500の過去のデータに基づき、年間±15%の範囲でランダムに変動します。">S&P500想定 ±15%変動</button>
-      <button class="btn" id="modeNormal" data-tooltip="年間平均5%、標準偏差10%の正規分布に従って市場が変動します。より現実的な市場の動きを再現します。">正規分布</button>
-      <button class="btn" id="modeGBM" data-tooltip="幾何ブラウン運動モデルに基づき、年間平均7%、標準偏差15%で市場が変動します。株価の動きをより厳密にモデル化します。">幾何ブラウン運動</button>
-    </div>
-    <div class="control-row">
-      <span>初期投資額：</span>
-      <input type="number" id="initialInvestment" value="500000" min="0" step="10000"> 円
-      <span style="margin-left: 20px;">年間追加投資額：</span>
-      <input type="number" id="annualInvestment" value="50000" min="0" step="5000"> 円
-    </div>
-    <div class="control-row">
-      <span>初期会社数：</span>
-      <input type="number" id="numInitialCompanies" value="5" min="1" step="1"> 社
-    </div>
-    <div id="patternControls">
-      <span>表示パターン：</span>
-      <button class="btn active" id="patReinvestSame">既存株フルベット</button>
-      <button class="btn" id="patReinvestNew4">配当4%新規株</button>
-      <button class="btn" id="patReinvestVolatile">高変動5%新規株</button>
-      <button class="btn" id="patCollectCash">配当貯金型</button>
-    </div>
-  </div>
-  <div id="mainArea">
-    <div id="chartContainer">
-      <canvas id="assetChart"></canvas>
-      <div id="dataTable"></div>
-    </div>
-    <div id="summaryArea">
-      <div id="yearSummaryControls">
-        <span>比較する年 (0–<span id="totalYearsDisplay">50</span>)：</span>
-        <input type="number" id="yearInputSummary" min="0" max="50" value="50">
-        <button class="btn" id="yearCompareBtnSummary">比較</button>
+  <div class="no-container w-full p-4">
+    <h1 class="text-3xl font-bold text-center mb-6">将来の運用資産額シミュレーション</h1>
+
+    <!-- 入力フォーム -->
+    <div class="bg-white rounded shadow p-6 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="flex items-center"><label class="w-1/2">初期投資額：</label><input id="iv"  type="number" value="500000" step="10000" class="w-1/2 p-2 border rounded text-center">円</div>
+        <div class="flex items-center"><label class="w-1/2">毎月積立額：</label><input id="mc"  type="number" value="10000" step="1000"  class="w-1/2 p-2 border rounded text-center">円</div>
+        <div class="flex items-center"><label class="w-1/2">積立期間：</label><input id="yrs" type="number" value="40"     min="1" max="50" class="w-1/2 p-2 border rounded text-center">年</div>
+        <div class="flex items-center"><label class="w-1/2">想定リターン：</label><input id="mu"  type="number" value="4.0"  step="0.1"  class="w-1/2 p-2 border rounded text-center">%</div>
+        <div class="flex items-center"><label class="w-1/2">想定リスク：</label><input id="sd"  type="number" value="2.0"  step="0.1"  class="w-1/2 p-2 border rounded text-center">%</div>
       </div>
-      <h3>4パターン比較 (指定年)</h3>
-      <table id="summaryTable">
-        <thead>
-          <tr><th>パターン</th><th>総資産 (範囲)</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>既存株フルベット</td><td id="sumReinvestSame">-</td></tr>
-          <tr><td>配当4%新規株</td><td id="sumReinvestNew4">-</td></tr>
-          <tr><td>高変動5%新規株</td><td id="sumReinvestVolatile">-</td></tr>
-          <tr><td>配当貯金型</td><td id="sumCollectCash">-</td></tr>
-        </tbody>
-      </table>
-      
-      <div id="explanationArea">
-        <h3>投資パターン説明：</h3>
-        <div class="explanation-item">
-          <ul>
-            <li><strong>既存株フルベット：</strong>配当金と年間追加投資を既存の株に再投資</li>
-            <li><strong>配当4%新規株：</strong>配当金と年間追加投資を年4%リターンの新規株に投資</li>
-            <li><strong>高変動5%新規株：</strong>配当金と年間追加投資を年5%前後の高変動株に投資</li>
-            <li><strong>配当貯金型：</strong>配当金を現金として蓄積（年間追加投資も現金として蓄積）</li>
-          </ul>
-        </div>
+      <button id="run" class="mt-6 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">計算する</button>
+    </div>
+
+    <!-- 未来資産額表示 -->
+    <div id="futureTotalBox" class="bg-white rounded shadow p-6 mb-6 hidden text-center">
+      <h2 class="text-lg font-semibold text-gray-500">将来の運用資産額</h2>
+      <p id="futureTotal" class="text-4xl font-extrabold text-blue-900 mt-2"></p>
+    </div>
+
+    <!-- グラフ + サマリー 2 カラム -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="bg-white rounded shadow p-4 col-span-2 flex flex-col">
+        <h3 class="text-sm font-medium text-center mb-2">資産推移（元本と総資産の内訳）</h3>
+        <div id="chart" class="flex-grow" style="width:100%; height:500px;"></div>
+        <p id="err" class="text-red-500 text-center text-sm mt-1"></p>
+      </div>
+
+      <!-- サマリー表 -->
+      <div id="summaryPanel" class="bg-white rounded shadow p-4 hidden">
+        <h3 class="text-lg font-bold mb-3 text-center">積立期間終了時の予想資産額</h3>
+        <table class="w-full text-sm mb-4">
+          <thead class="bg-gray-100 text-gray-600">
+            <tr><th class="py-1 pl-2 text-left">運用成績</th><th class="py-1 pr-2 text-right">予想資産額 (円)</th></tr>
+          </thead>
+          <tbody id="summaryRows" class="divide-y"></tbody>
+        </table>
+        <p class="text-right font-semibold">投資元本: <span id="initialCapital"></span></p>
       </div>
     </div>
   </div>
 
-  <script>
-    // === 定数 ===
-    const TOTAL_YEARS        = 50; // シミュレーション期間を50年に延長
-    let INITIAL_INVESTMENT = 500000;
-    let ANNUAL_NEW_INVEST  = 50000; // 年間追加投資額
-    let NUM_INITIAL_COMPANIES = 5; // 初期会社数
-    const DIVIDEND_YIELD     = 0.04;
-    const LONG_PRESS_THRESHOLD = 500; // 長押しと認識する時間（ミリ秒）
-    const TOUCH_MOVE_THRESHOLD = 10; // タッチ移動を認識する閾値（ピクセル）
+<script>
+/* ------- 正規分布乱数 ------- */
+let spare=null;function nrand(){if(spare!==null){const x=spare;spare=null;return x}let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();spare=Math.sqrt(-2*Math.log(u))*Math.sin(2*Math.PI*v);return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}function normal(m,s){return m+nrand()*s;}
 
-    // === 画面状態 ===
-    let currentMode    = 'fixed';
-    let currentPattern = 'reinvestSame';
-    let chart          = null;
-    let lastSimData    = null; // 最後にシミュレートされた全期間のデータ
-    let tooltipElement = null; // 現在表示されているツールチップ要素
-    let longPressTimer = null; // 長押しタイマー
-    let touchStartX = 0;
-    let touchStartY = 0;
+function yen(x){return x.toLocaleString('ja-JP',{style:'currency',currency:'JPY',maximumFractionDigits:0});}
 
-    // === 企業パラメータのベース (初期5社) ===
-    // この配列から、NUM_INITIAL_COMPANIESの数だけ会社を生成します
-    const baseCompanyParams = [
-      { upProb: 0.55, upReturn: 0.06, downReturn: -0.04 },
-      { upProb: 0.60, upReturn: 0.08, downReturn: -0.05 },
-      { upProb: 0.50, upReturn: 0.05, downReturn: -0.03 },
-      { upProb: 0.58, upReturn: 0.07, downReturn: -0.04 },
-      { upProb: 0.62, upReturn: 0.09, downReturn: -0.06 }
-    ];
+/* ------------- メイン ------------- */
+document.getElementById('run').addEventListener('click',()=>{
+  const iv =+document.getElementById('iv').value||0;
+  const mc =+document.getElementById('mc').value||0;
+  const yrs=+document.getElementById('yrs').value||1;
+  const mu =(+document.getElementById('mu').value||0)/100;
+  const sd =(+document.getElementById('sd').value||0)/100;
 
-    // === 初期化 ===
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('modeFixed').addEventListener('click', () => setMode('fixed'));
-      document.getElementById('modeSP500').addEventListener('click', () => setMode('sp500'));
-      document.getElementById('modeNormal').addEventListener('click', () => setMode('normal'));
-      document.getElementById('modeGBM').addEventListener('click', () => setMode('gbm'));
-      document.getElementById('patReinvestSame').addEventListener('click', () => setPattern('reinvestSame'));
-      document.getElementById('patReinvestNew4').addEventListener('click', () => setPattern('reinvestNew4'));
-      document.getElementById('patReinvestVolatile').addEventListener('click', () => setPattern('reinvestVolatile'));
-      document.getElementById('patCollectCash').addEventListener('click', () => setPattern('collectCash'));
-      
-      // 「比較」ボタンのイベントリスナー
-      document.getElementById('yearCompareBtnSummary').addEventListener('click', updateSummary);
-      
-      // 投資額と会社数の変更イベント
-      document.getElementById('initialInvestment').addEventListener('change', updateInvestmentSettings);
-      document.getElementById('annualInvestment').addEventListener('change', updateInvestmentSettings);
-      document.getElementById('numInitialCompanies').addEventListener('change', updateInvestmentSettings);
+  const sim=1000, paths=[];
+  for(let s=0;s<sim;s++){
+    const p=[iv];
+    for(let y=0;y<yrs;y++) p.push(p[y]*(1+normal(mu,sd))+mc*12);
+    paths.push(p);
+  }
+  const avg=[];for(let y=0;y<=yrs;y++) avg[y]=paths.reduce((t,p)=>t+p[y],0)/sim;
 
-      // 年比較の表示と入力範囲を更新
-      document.getElementById('totalYearsDisplay').textContent = TOTAL_YEARS;
-      document.getElementById('yearInputSummary').setAttribute('max', TOTAL_YEARS);
-      document.getElementById('yearInputSummary').value = TOTAL_YEARS; // 初期値を最大年数に設定
+  /* プリンシパル & ゲイン データ → stacked */
+  const chartData=[];for(let y=0;y<=yrs;y++){
+    const principal=iv+mc*12*y;
+    chartData.push({Year:y,Type:'投資元本',Val:principal});
+    chartData.push({Year:y,Type:'運用成果',Val:avg[y]-principal});
+  }
+  const maxY=Math.max(...avg)*1.15;
 
-      // ツールチップイベントリスナー設定
-      setupTooltipListeners();
+  const spec={
+    $schema:'https://vega.github.io/schema/vega-lite/v5.json',
+    width:'container',height:500,
+    data:{values:chartData},
+    mark:{type:'bar'},
+    encoding:{
+      x:{field:'Year',type:'ordinal',axis:{title:'Year'}},
+      y:{field:'Val',type:'quantitative',stack:'zero',axis:{format:',.0f',title:'金額 (円)'},scale:{domain:[0,maxY]}},
+      color:{field:'Type',type:'nominal',legend:{orient:'top'},scale:{domain:['投資元本','運用成果'],range:['#93c5fd','#1e3a8a']}},
+      tooltip:[{field:'Year',type:'ordinal',title:'Year'},{field:'Type',type:'nominal',title:'区分'},{field:'Val',type:'quantitative',format:',.0f',title:'金額'}]
+    },
+    title:'元本と運用成果のスタックバー'
+  };
 
-      simulateAndRender(); // 初回ロード時にシミュレーションを実行し、グラフと表を更新
-    });
+  vegaEmbed('#chart',spec,{actions:false})
+   .then(()=>document.getElementById('err').textContent='')
+   .catch(e=>{console.error(e);document.getElementById('err').textContent='描画失敗:'+e.message});
 
-    // === UI 更新ヘルパ ===
-    function updateInvestmentSettings() {
-      INITIAL_INVESTMENT = parseInt(document.getElementById('initialInvestment').value) || 500000;
-      ANNUAL_NEW_INVEST = parseInt(document.getElementById('annualInvestment').value) || 50000;
-      NUM_INITIAL_COMPANIES = parseInt(document.getElementById('numInitialCompanies').value) || 5;
-      if (NUM_INITIAL_COMPANIES < 1) {
-        NUM_INITIAL_COMPANIES = 1;
-        document.getElementById('numInitialCompanies').value = 1;
-      }
-      simulateAndRender();
-    }
-    
-    function setMode(mode) {
-      currentMode = mode;
-      document.querySelectorAll('#controls > .control-row .btn').forEach(btn => btn.classList.remove('active'));
-      const idMap = {
-        fixed: 'modeFixed',
-        sp500: 'modeSP500',
-        normal: 'modeNormal',
-        gbm: 'modeGBM'
-      };
-      document.getElementById(idMap[mode]).classList.add('active');
-      simulateAndRender();
-    }
-    function setPattern(pattern) {
-      currentPattern = pattern;
-      document.querySelectorAll('#patternControls .btn').forEach(btn => btn.classList.remove('active'));
-      const idMap = {
-        reinvestSame: 'patReinvestSame',
-        reinvestNew4: 'patReinvestNew4',
-        reinvestVolatile: 'patReinvestVolatile',
-        collectCash: 'patCollectCash'
-      };
-      document.getElementById(idMap[pattern]).classList.add('active');
-      simulateAndRender();
-    }
+  /* ---- サマリー計算 ---- */
+  const finals=paths.map(p=>p[yrs]).sort((a,b)=>a-b);
+  const p05=Math.floor(sim*0.05),p30=Math.floor(sim*0.30),p70=Math.floor(sim*0.70),p95=Math.floor(sim*0.95);
+  const summary=[
+    ['運用成績が上位 5 %', finals[p95]],
+    ['運用成績が上位 30 %',finals[p70]],
+    ['想定リターン',         avg[yrs]],
+    ['運用成績が下位 30 %',finals[p30]],
+    ['運用成績が下位 5 %', finals[p05]]
+  ];
+  const tbody=document.getElementById('summaryRows');
+  tbody.innerHTML='';
+  summary.forEach(([label,val])=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="py-1 pl-2">${label}</td><td class="py-1 pr-2 text-right">${yen(val)}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('initialCapital').textContent=yen(iv+mc*12*yrs);
+  document.getElementById('summaryPanel').classList.remove('hidden');
 
-    // === 乱数ユーティリティ ===
-    // Box-Muller変換による正規乱数生成
-    function gaussianRandom(mean = 0, stdev = 1) {
-      let u = 0, v = 0;
-      while(u === 0) u = Math.random();
-      while(v === 0) v = Math.random();
-      let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-      return num * stdev + mean;
-    }
-
-    const randRange = r => 1 + (Math.random() * 2 - 1) * r;
-
-    function marketSeries() {
-      const arr = [1];
-      for (let y = 1; y <= TOTAL_YEARS; y++) {
-        let marketReturnMultiplier;
-        if (currentMode === 'fixed') {
-          marketReturnMultiplier = randRange(0.04);
-        } else if (currentMode === 'sp500') {
-          marketReturnMultiplier = randRange(0.15);
-        } else if (currentMode === 'normal') {
-          const meanReturn = 0.05;
-          const stdevReturn = 0.10;
-          marketReturnMultiplier = 1 + gaussianRandom(meanReturn, stdevReturn);
-        } else if (currentMode === 'gbm') {
-          const mu = 0.07;
-          const sigma = 0.15;
-          const dt = 1;
-          const Z = gaussianRandom(0, 1);
-          marketReturnMultiplier = Math.exp((mu - 0.5 * sigma * sigma) * dt + sigma * Math.sqrt(dt) * Z);
-        }
-        arr[y] = arr[y - 1] * marketReturnMultiplier;
-      }
-      return arr;
-    }
-
-    // === シミュレーション本体 ===
-    function simulate() {
-      const results = {
-        reinvestSame:     { base: [], reinvest: [] },
-        reinvestNew4:     { base: [], reinvest: [] },
-        reinvestVolatile: { base: [], reinvest: [] },
-        collectCash:      { base: [], reinvest: [] }
-      };
-      const market = marketSeries();
-
-      Object.keys(results).forEach(pattern => {
-        const comps = [];
-        for (let i = 0; i < NUM_INITIAL_COMPANIES; i++) {
-          comps.push(JSON.parse(JSON.stringify(baseCompanyParams[i % baseCompanyParams.length])));
-        }
-        
-        let baseVals     = comps.map(() => INITIAL_INVESTMENT / comps.length);
-        let reinvestHold = 0;
-
-        results[pattern].base.push(sumArray(baseVals));
-        results[pattern].reinvest.push(reinvestHold);
-
-        for (let year = 1; year <= TOTAL_YEARS; year++) {
-          // 年間追加投資額は、パターンに関わらずreinvestHoldに加算されるように変更
-          // 元資産への直接的な追加は行わない
-          const addPerBase = 0; // すべてのパターンで元資産への直接追加を0にする
-          baseVals = baseVals.map(v => v + addPerBase); // 既存のbaseValsにaddPerBaseを適用（今回は0なので変化なし）
-
-          let totalDividends = 0;
-          comps.forEach((c, idx) => {
-            const prev  = baseVals[idx];
-            const mult  = market[year] / market[year - 1];
-            const cmpMul = (Math.random() < c.upProb) ? (1 + c.upReturn) : (1 + c.downReturn);
-            baseVals[idx] = prev * cmpMul * mult;
-            totalDividends += prev * DIVIDEND_YIELD;
-          });
-
-          switch (pattern) {
-            case 'reinvestSame':
-              // 既存株フルベット: 配当金と年間追加投資額を既存株に再投資（市場変動の影響を受ける）
-              reinvestHold = (reinvestHold + totalDividends + ANNUAL_NEW_INVEST) * (market[year] / market[year - 1]);
-              break;
-            case 'reinvestNew4':
-              // 配当4%新規株: 配当金と年間追加投資額を年4%リターンの新規株に投資
-              reinvestHold = (reinvestHold + totalDividends + ANNUAL_NEW_INVEST) * 1.04;
-              break;
-            case 'reinvestVolatile':
-              // 高変動5%新規株: 配当金と年間追加投資額を年5%前後の高変動株に投資
-              const r = 0.055 + (Math.random() - 0.5) * 0.01;
-              reinvestHold = (reinvestHold + totalDividends + ANNUAL_NEW_INVEST) * (1 + r);
-              break;
-            default: // collectCash
-              // 配当貯金型: 配当金のみを現金として蓄積（年間追加投資額も現金として蓄積）
-              reinvestHold += (totalDividends + ANNUAL_NEW_INVEST); // 年間追加投資額も再投資等に合算
-          }
-
-          results[pattern].base.push(sumArray(baseVals));
-          results[pattern].reinvest.push(reinvestHold);
-        }
-      });
-
-      return results;
-    }
-    function sumArray(arr) { return arr.reduce((s, v) => s + v, 0); }
-
-    // === グラフ描画 ===
-    // displayYears: グラフに表示する年数 (0からdisplayYearsまで)
-    function renderChart(data, displayYears) {
-      const labels = Array.from({ length: displayYears + 1 }, (_, i) => `Year ${i}`);
-      const colors = {
-        reinvestSame:     ['rgba(54,162,235,0.8)', 'rgba(54,162,235,0.3)'],
-        reinvestNew4:     ['rgba(75,192,192,0.8)', 'rgba(75,192,192,0.3)'],
-        reinvestVolatile: ['rgba(255,206,86,0.8)', 'rgba(255,206,86,0.3)'],
-        collectCash:      ['rgba(255,99,132,0.8)', 'rgba(255,99,132,0.3)']
-      };
-      const key = currentPattern;
-      const datasets = [
-        {
-          label: `${key} - 元資産`,
-          data:  data[key].base.slice(0, displayYears + 1).map(v => +v.toFixed(0)),
-          backgroundColor: colors[key][0],
-          stack: key
-        },
-        {
-          label: `${key} - 再投資`,
-          data:  data[key].reinvest.slice(0, displayYears + 1).map(v => +v.toFixed(0)),
-          backgroundColor: colors[key][1],
-          stack: key
-        }  
-      ];
-      const ctx = document.getElementById('assetChart').getContext('2d');
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets },
-        options: {
-          responsive: true,
-          scales: {
-            x: { stacked: true, title: { display: true, text: '年数' } },
-            y: { stacked: true, beginAtZero: true, title: { display: true, text: '総資産 (円)' } }
-          },
-          plugins: {
-            legend: { position: 'top' },
-            title: { display: true, text: '資産推移（元資産 vs 再投資）' }
-          }
-        }
-      });
-    }
-
-    // === テーブル描画 ===
-    // displayYears: テーブルに表示する年数 (0からdisplayYearsまで)
-    function renderTable(data, displayYears) {
-      const key = currentPattern;
-      let html = '<table><thead><tr>';
-      // 各ヘッダーにツールチップデータ属性を追加
-      html += `<th data-tooltip="シミュレーションの経過年数です。">Year</th>`;
-      html += `<th data-tooltip="株式投資によって増減する資産です。市場の変動と各企業の個別リスクの影響を受けます。">元資産</th>`;
-      html += `<th data-tooltip="配当金と年間追加投資額の運用によって蓄積された資産です。選択された投資パターンにより運用方法が異なります。">再投資等</th>`;
-      html += `<th data-tooltip="元資産と再投資等の合計額です。これが実際の総資産額となります。">合計</th>`;
-      html += '</tr></thead><tbody>';
-      for (let i = 0; i <= displayYears; i++) { // 指定された年数までループ
-        const baseVal = data[key].base[i];
-        const reinvVal = data[key].reinvest[i];
-        const totalVal = baseVal + reinvVal;
-        html += `<tr><td>${i}</td><td>${baseVal.toFixed(0).toLocaleString()}</td><td>${reinvVal.toFixed(0).toLocaleString()}</td><td>${totalVal.toFixed(0).toLocaleString()}</td></tr>`;
-      }
-      html += '</tbody></table>';
-      document.getElementById('dataTable').innerHTML = html;
-
-      // テーブルヘッダーにツールチップイベントリスナーを再設定
-      setupTooltipListeners();
-    }
-
-    // === 範囲比較 ===
-    function updateSummary() {
-      if (!lastSimData) return;
-
-      const y = parseInt(document.getElementById('yearInputSummary').value, 10);
-      let displayYearsForChartAndTable = TOTAL_YEARS; // デフォルトは全期間表示
-
-      if (!isNaN(y) && y >= 0 && y <= TOTAL_YEARS) {
-        displayYearsForChartAndTable = y; // 有効な年が入力されたらその年まで表示
-      } else {
-        // 無効な年が入力された場合、入力フィールドの値をTOTAL_YEARSに戻す
-        document.getElementById('yearInputSummary').value = TOTAL_YEARS;
-      }
-
-      // グラフと表を選択された年まで更新（無効な場合は全期間）
-      renderChart(lastSimData, displayYearsForChartAndTable);
-      renderTable(lastSimData, displayYearsForChartAndTable);
-
-      // --- 従来のサマリー範囲計算（複数回のシミュレーションが必要な部分） ---
-      const patterns = ['reinvestSame', 'reinvestNew4', 'reinvestVolatile', 'collectCash'];
-      const ranges = { reinvestSame: [], reinvestNew4: [], reinvestVolatile: [], collectCash: [] };
-      // 範囲計算は常にTOTAL_YEARSまでのデータで行う
-      const targetYearForSummary = (isNaN(y) || y < 0 || y > TOTAL_YEARS) ? TOTAL_YEARS : y; // サマリー計算に使う年
-
-      for (let i = 0; i < 10; i++) {
-        const data = simulate();
-        patterns.forEach(key => {
-          const val = (data[key].base[targetYearForSummary] || 0) + (data[key].reinvest[targetYearForSummary] || 0);
-          ranges[key].push(val);
-        });
-      }
-      patterns.forEach(key => {
-        const arr = ranges[key];
-        const minV = Math.min(...arr);
-        const maxV = Math.Max(...arr);
-        const id = {
-          reinvestSame: 'sumReinvestSame',
-          reinvestNew4: 'sumReinvestNew4',
-          reinvestVolatile: 'sumReinvestVolatile',
-          collectCash: 'sumCollectCash'
-        }[key];
-        document.getElementById(id).innerText = `${minV.toLocaleString()}～${maxV.toLocaleString()}`;
-      });
-      // --- サマリー範囲計算終了 ---
-    }
-
-    // === ツールチップ表示ロジック ===
-    function showTooltip(event) {
-      const targetElement = event.currentTarget;
-      const tooltipText = targetElement.dataset.tooltip;
-
-      if (!tooltipText) return;
-
-      if (tooltipElement) {
-        tooltipElement.remove();
-      }
-
-      tooltipElement = document.createElement('div');
-      tooltipElement.className = 'tooltip';
-      tooltipElement.textContent = tooltipText;
-      document.body.appendChild(tooltipElement);
-
-      const rect = targetElement.getBoundingClientRect();
-
-      const tooltipWidth = tooltipElement.offsetWidth;
-      const tooltipHeight = tooltipElement.offsetHeight;
-
-      let leftPos = rect.right - tooltipWidth / 2;
-      let topPos = rect.top - tooltipHeight - 10;
-
-      if (leftPos < 0) {
-          leftPos = 5;
-      }
-      if (topPos < 0) {
-          topPos = rect.bottom + 5;
-      }
-      if (leftPos + tooltipWidth > window.innerWidth) {
-          leftPos = window.innerWidth - tooltipWidth - 5;
-      }
-
-      tooltipElement.style.left = `${leftPos}px`;
-      tooltipElement.style.top = `${topPos}px`;
-
-      tooltipElement.style.opacity = '1';
-      tooltipElement.style.visibility = 'visible';
-    }
-
-    // === ツールチップ非表示ロジック ===
-    function hideTooltip() {
-      if (tooltipElement) {
-        tooltipElement.style.opacity = '0';
-        tooltipElement.style.visibility = 'hidden';
-        tooltipElement.addEventListener('transitionend', () => {
-          if (tooltipElement && tooltipElement.parentNode) {
-            tooltipElement.remove();
-            tooltipElement = null;
-          }
-        }, { once: true });
-      }
-    }
-
-    // === タッチデバイス判定 ===
-    function isTouchDevice() {
-      return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
-    }
-
-    // === ツールチップイベントリスナーのセットアップ ===
-    function setupTooltipListeners() {
-      const tooltipTargets = document.querySelectorAll('[data-tooltip]');
-
-      tooltipTargets.forEach(target => {
-        target.removeEventListener('mouseover', showTooltip);
-        target.removeEventListener('mouseout', hideTooltip);
-        target.removeEventListener('touchstart', handleTouchStart);
-        target.removeEventListener('touchend', handleTouchEnd);
-        target.removeEventListener('touchmove', handleTouchMove);
-        target.removeEventListener('touchcancel', handleTouchEnd);
-
-        if (isTouchDevice()) {
-          target.addEventListener('touchstart', handleTouchStart);
-          target.addEventListener('touchend', handleTouchEnd);
-          target.addEventListener('touchmove', handleTouchMove);
-          target.addEventListener('touchcancel', handleTouchEnd);
-        } else {
-          target.addEventListener('mouseover', showTooltip);
-          target.addEventListener('mouseout', hideTooltip);
-        }
-      });
-    }
-
-    // === タッチイベントハンドラ ===
-    function handleTouchStart(event) {
-      if (event.touches.length > 1) {
-        clearTimeout(longPressTimer);
-        return;
-      }
-
-      const target = event.currentTarget;
-      touchStartX = event.touches[0].clientX;
-      touchStartY = event.touches[0].clientY;
-
-      longPressTimer = setTimeout(() => {
-        showTooltip(event);
-      }, LONG_PRESS_THRESHOLD);
-    }
-
-    function handleTouchMove(event) {
-      const currentX = event.touches[0].clientX;
-      const currentY = event.touches[0].clientY;
-      const deltaX = Math.abs(currentX - touchStartX);
-      const deltaY = Math.abs(currentY - touchStartY);
-
-      if (deltaX > TOUCH_MOVE_THRESHOLD || deltaY > TOUCH_MOVE_THRESHOLD) {
-        clearTimeout(longPressTimer);
-        hideTooltip();
-      }
-    }
-
-    function handleTouchEnd(event) {
-      clearTimeout(longPressTimer);
-      hideTooltip();
-    }
-
-    // === 描画呼び出し ===
-    function simulateAndRender() {
-      lastSimData = simulate();
-      // 初期表示と設定変更時は常に全期間を表示
-      renderChart(lastSimData, TOTAL_YEARS);
-      renderTable(lastSimData, TOTAL_YEARS);
-      updateSummary(); // サマリーを更新し、必要に応じてグラフと表を再描画
-    }
-  </script>
+  /* ---- 将来資産額（平均） ---- */
+  document.getElementById('futureTotal').textContent=yen(avg[yrs]);
+  document.getElementById('futureTotalBox').classList.remove('hidden');
+});
+</script>
 </body>
 </html>
